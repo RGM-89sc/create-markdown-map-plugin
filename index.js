@@ -68,4 +68,4 @@ CreateMarkDownMapPlugin.prototype.apply = function (compiler) {
   })
 }
 
-module.exports = CreateMarkDownMap
+module.exports = CreateMarkDownMapPlugin

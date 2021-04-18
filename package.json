@@ -1,17 +1,18 @@
 {
   "name": "@rgm-89sc/create-markdown-map-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "types": "./index.d.ts",
   "scripts": {
+    "publish": "npm publish",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "license": "ISC",
   "dependencies": {
-    "blueimp-md5": "^2.16.0",
-    "marked": "^1.2.5",
-    "uglify-js": "^3.12.1"
+    "blueimp-md5": "^2.18.0",
+    "marked": "^2.0.3",
+    "uglify-js": "^3.13.4"
   },
   "repository": {
     "type": "git",

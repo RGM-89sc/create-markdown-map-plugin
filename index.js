@@ -2,70 +2,88 @@ const fs = require('fs')
 const md5 = require('blueimp-md5')
 const getFileMap = require('./utils/files-processor')
 const template = require('./utils/template')
+class CreateMarkDownMapPlugin {
 
-const PLUGINNAME = 'CreateMarkDownMapPlugin'
+  constructor(options = {}) {
+    this.options = options
+  }
 
-let _options
+  apply(compiler) {
+    const pluginName = CreateMarkDownMapPlugin.name
 
-function CreateMarkDownMapPlugin (options) {
-  _options = options
-}
+    const { webpack: { Compilation, sources } } = compiler
+    const { RawSource } = sources
 
-CreateMarkDownMapPlugin.prototype.apply = function (compiler) {
-  compiler.hooks.emit.tapAsync(PLUGINNAME, async (compilation, callback) => {
-    const dirPath = _options.dirPath
-
-    if (!fs.existsSync(dirPath)) {
-      throw `[${PLUGINNAME}] invalid \`dirPath\``
-    }
-
-    const files = fs.readdirSync(dirPath)
-    const fileMap = await getFileMap(dirPath, files, _options.parseOptions, _options.interceptor)
-
-    let targetFileContent = ''
-    if (_options.dist.mode === 'variable') {
-      if (!_options.dist.path || typeof _options.dist.path !== 'string') {
-        throw `[${PLUGINNAME}] \`dist.path\` must be a string`
-      }
-      targetFileContent = template`mount ${JSON.stringify(fileMap)} under ${_options.dist.path}`
-    } else if (_options.dist.mode === 'localStorage') {
-      targetFileContent = template`add ${JSON.stringify(fileMap)} to ${'localStorage._posts'}`
-    } else if (_options.dist.mode === 'sessionStorage') {
-      targetFileContent = template`add ${JSON.stringify(fileMap)} to ${'sessionStorage._posts'}`
-    } else {
-      if (!_options.dist.path || typeof _options.dist.path !== 'string') {
-        targetFileContent = template`export ${JSON.stringify(fileMap)}`
-      } else {
-        targetFileContent = template`export ${JSON.stringify(fileMap)} as ${_options.dist.path}`
-      }
-    }
-    
-    const targetFilePath = `js/${md5(targetFileContent).substring(0, 8)}.js`
-
-
-    compilation.assets[targetFilePath] = {
-      source: function () {
-        return targetFileContent
-      },
-      size: function () {
-        return this.source().length
-      }
-    }
-
-    setTimeout(() => {
-      const indexContent = compilation.assets['index.html'].source()
-      compilation.assets['index.html'] = {
-        source: function () {
-          return indexContent.replace('</head>', `<script src="${targetFilePath}"></script></head>`)
+    compiler.hooks.thisCompilation.tap(pluginName, (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: pluginName,
+          // that all assets were already added to the compilation by other plugins.
+          stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
         },
-        size: function () {
-          return this.source().length
+        async (assets) => {
+          const dirPath = this.options.dirPath
+
+          if (!fs.existsSync(dirPath)) {
+            throw `[${pluginName}] invalid \`dirPath\``
+          }
+
+          const files = fs.readdirSync(dirPath)
+          const fileMap = await getFileMap(dirPath, files, this.options.parseOptions, this.options.interceptor)
+
+          let targetFileContent = ''
+          const result = this.getTargetFileContent(fileMap)
+          if (result.type === 'error') {
+            throw `[${pluginName}] ${result.message}`
+          } else {
+            targetFileContent = result.data
+          }
+
+          const targetFilePath = `js/${md5(targetFileContent).substring(0, 8)}.js`
+
+          // Adding new asset to the compilation, so it would be automatically
+          compilation.emitAsset(targetFilePath, new RawSource(targetFileContent))
+            
+          const indexContent = compilation.assets['index.html'].source()
+          compilation.updateAsset('index.html', new RawSource(indexContent.replace('</head>', `<script src="${targetFilePath}"></script></head>`)))
+        }
+      )
+    })
+  }
+
+  getTargetFileContent(fileMap) {
+    const dist = this.options.dist
+    if (!dist) {
+      return {
+        type: 'error',
+        message: `miss \`options.dist\``
+      }
+    }
+    let targetFileContent = ''
+    if (dist.mode === 'variable') {
+      if (!dist.path || typeof dist.path !== 'string') {
+        return {
+          type: 'error',
+          message: `\`dist.path\` must be a string`
         }
       }
-
-      callback()
-    }, 0)
-  })
+      targetFileContent = template`mount ${JSON.stringify(fileMap)} under ${dist.path}`
+    } else if (dist.mode === 'localStorage') {
+      targetFileContent = template`add ${JSON.stringify(fileMap)} to ${'localStorage._posts'}`
+    } else if (dist.mode === 'sessionStorage') {
+      targetFileContent = template`add ${JSON.stringify(fileMap)} to ${'sessionStorage._posts'}`
+    } else {
+      if (!dist.path || typeof dist.path !== 'string') {
+        targetFileContent = template`export ${JSON.stringify(fileMap)}`
+      } else {
+        targetFileContent = template`export ${JSON.stringify(fileMap)} as ${dist.path}`
+      }
+    }
+    return {
+      type: 'result',
+      data: targetFileContent
+    }
+  }
 }
 
 module.exports = CreateMarkDownMapPlugin

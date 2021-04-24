@@ -45,7 +45,12 @@ class CreateMarkDownMapPlugin {
           compilation.emitAsset(targetFilePath, new RawSource(targetFileContent))
             
           const indexContent = compilation.assets['index.html'].source()
-          compilation.updateAsset('index.html', new RawSource(indexContent.replace('</head>', `<script src="${targetFilePath}"></script></head>`)))
+          setTimeout(() => {
+            compilation.updateAsset('index.html', (source) => {
+              return new RawSource(indexContent.replace('</head>', `<script src="${targetFilePath}"></script></head>`))
+            })
+          }, 0)
+          
         }
       )
     })

@@ -43,14 +43,13 @@ class CreateMarkDownMapPlugin {
 
           // Adding new asset to the compilation, so it would be automatically
           compilation.emitAsset(targetFilePath, new RawSource(targetFileContent))
-            
-          const indexContent = compilation.assets['index.html'].source()
+
           setTimeout(() => {
+            const indexContent = compilation.assets['index.html'].source()
             compilation.updateAsset('index.html', (source) => {
               return new RawSource(indexContent.replace('</head>', `<script src="${targetFilePath}"></script></head>`))
             })
           }, 0)
-          
         }
       )
     })
